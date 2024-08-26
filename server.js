@@ -2,6 +2,9 @@ const express = require('express')
 const cors = require('cors')
 const {MongoClient} = require('mongodb')
 const app = express()
+const User = require('./models/User')
+const bcrypt = require('bcryptjs')
+const Blog = require('./models/Blog')
 
 app.use(cors())
 app.use(express.json())
@@ -90,12 +93,6 @@ app.post("/createBlog", async (req, res) => {
     })
 })
 
-app.post("/login", async (req, res) => {
-    console.log(req)
-    res.json({
-        "data" : "login"
-    })
-})
 
 app.get('/test-db', (req, res) => {
     mongoose.connect(url, {})
@@ -107,6 +104,70 @@ app.get('/test-db', (req, res) => {
     })
     res.json({"data" : "connected"})
 
+})
+
+app.post('/signup', async (req,res) => {
+
+    const name = req.body.name;
+    const email = req.body.email;
+    let password = req.body.password;
+
+    const salt = await bcrypt.genSalt(10);
+    password = await bcrypt.hash(password, salt)
+
+    let user = await User.findOne({email})
+    if (user) {
+        return res.status(302).json({
+            "data" : "user already exists !"
+        })
+    }
+
+    user = new User({
+        name,
+        email,
+        password
+    })
+    user.save()
+    return res.status(201).json({
+        user: user
+    })
+})
+
+app.post('/login', async (req,res) => {
+    const email = req.body.email;
+    let password = req.body.password
+
+    let user = await User.findOne({email})
+    if (await bcrypt.compare(password, user.password)){
+        return res.status(200).json({
+            data: "loggedin successfully"
+        })
+    }
+    
+    return res.status(404).json({
+        data: "Invalid credentials"
+    })
+})
+
+app.post('/create-blog', async (req, res) => {
+
+    const blogTitle = req.body.blogTitle;
+    const content = req.body.content;
+    const img = req.body.img;
+    const pdate = req.body.pdate;
+    let blog = new Blog({
+        blogTitle,
+        content,
+        img,
+        pdate
+    })
+
+    blog.save()
+    
+    res.status(201).json({
+        data : "Blog created successfully",
+        blog: blog
+    })
 })
 
 app.listen(5000, () => {
